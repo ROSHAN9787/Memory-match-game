@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>2-Player Memory Game (Multiple Boards)</title>
+<style>
+body{
+  margin:0;font-family:Arial;background:#020617;color:#fff;
+  display:flex;justify-content:center;align-items:center;height:100vh;
+}
+.game{background:#0f172a;padding:20px 25px;border-radius:14px;width:400px}
+h2{text-align:center;margin:5px 0 10px}
+.top{display:flex;justify-content:space-between;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:15px}
+.card{height:70px;background:#1e293b;border-radius:10px;
+ display:flex;align-items:center;justify-content:center;font-size:30px;
+ cursor:pointer;user-select:none;transition:0.3s}
+.card.flipped,.card.matched{background:#22c55e}
+.controls{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+button,select{flex:1;padding:6px;border:none;border-radius:6px;cursor:pointer}
+.music-status{text-align:center;margin-top:8px;font-size:13px;color:#a5b4fc}
+</style>
+</head>
+<body>
+<div class="game">
+<h2>2-Player Memory Game 🎮</h2>
+<div class="top">
+  <div>P1: <span id="p1">0</span> | P2: <span id="p2">0</span></div>
+  <div>Turn: <span id="turn">P1</span></div>
+</div>
+
+<div id="grid" class="grid"></div>
+
+<div class="controls">
+  <button onclick="resetGame()">Restart</button>
+  <button onclick="toggleMusic()">Music 🎵</button>
+  <select onchange="setLevel(this.value)">
+    <option value="4">Easy</option>
+    <option value="5">Medium</option>
+    <option value="6">Hard</option>
+  </select>
+  <select onchange="setBoard(this.value)">
+    <option value="fruits">🍎 Fruits</option>
+    <option value="animals">🐶 Animals</option>
+    <option value="vehicles">🚗 Vehicles</option>
+  </select>
+</div>
+<div class="music-status" id="musicStatus">Click anywhere to enable sound</div>
+</div>
+
+<!-- Audio -->
+<audio id="clickSound" src="C:\Users\neera\OneDrive\Documents\WhatsApp Audio 2025-12-14 at 7.43.05 PM.mpeg"></audio>
+<audio id="matchSound" src="C:\Users\neera\OneDrive\Documents\WhatsApp Audio 2025-12-14 at 8.03.44 PM.mpeg"></audio>
+<audio id="winSound" src="C:\Users\neera\OneDrive\Documents\WhatsApp Audio 2025-12-14 at 7.45.12 PM.mpeg"></audio>
+<audio id="bgMusic" loop src="C:\Users\neera\OneDrive\Documents\WhatsApp Audio 2025-12-14 at 7.38.06 PM.mpeg"></audio>
+
+<script>
+/* 🎯 SYMBOL SETS */
+const boards = {
+  fruits: ['🍎','🍌','🍇','🍓','🍒','🥝','🍍','🍑','🥥','🍉','🍋','🍊'],
+  animals: ['🐶','🐱','🦁','🐯','🐮','🐸','🐵','🐼','🐨','🦊','🐰','🐷'],
+  vehicles:['🚗','🚕','🚙','🚌','🚎','🏎','🚓','🚑','🚒','🚜','🚲','🛵']
+};
+
+let currentBoard = 'fruits';
+let symbols = boards[currentBoard];
+let size=4;
+let cards=[],first=null,second=null,lock=false;
+let player=1,score={1:0,2:0};
+let unlocked=false;
+
+// 🔓 AUDIO UNLOCK
+document.addEventListener('click',()=>{
+ if(!unlocked){
+  [clickSound,matchSound,winSound,bgMusic].forEach(a=>{
+    a.volume=0.4;
+    a.play().then(()=>a.pause()).catch(()=>{});
+  });
+  unlocked=true;
+  musicStatus.textContent='Sound enabled ✔';
+ }
+},{once:true});
+
+function play(sound){ if(unlocked){ sound.currentTime=0; sound.play(); }}
+
+function build(){
+ const g=document.getElementById('grid');
+ g.style.gridTemplateColumns=`repeat(${size},1fr)`;
+ g.innerHTML='';
+ let used=symbols.slice(0,(size*size)/2);
+ cards=[...used,...used].sort(()=>Math.random()-0.5);
+ cards.forEach(sym=>{
+  let c=document.createElement('div');
+  c.className='card';c.dataset.sym=sym;
+  c.onclick=()=>flip(c);
+  g.appendChild(c);
+ });
+}
+
+function flip(c){
+ if(lock||c.classList.contains('flipped')||c.classList.contains('matched'))return;
+ play(clickSound);
+ c.classList.add('flipped');c.textContent=c.dataset.sym;
+ if(!first){first=c;return;}
+ second=c;check();
+}
+
+function check(){
+ if(first.dataset.sym===second.dataset.sym){
+  play(matchSound);
+  first.classList.add('matched');second.classList.add('matched');
+  score[player]++;update();reset();checkWin();
+ }else{
+  lock=true;setTimeout(()=>{
+   first.classList.remove('flipped');second.classList.remove('flipped');
+   first.textContent='';second.textContent='';switchP();reset();
+  },700);
+ }
+}
+
+function switchP(){player=player===1?2:1;turn.textContent='P'+player}
+function update(){p1.textContent=score[1];p2.textContent=score[2]}
+function reset(){first=second=null;lock=false}
+
+function checkWin(){
+ if(document.querySelectorAll('.matched').length===cards.length){
+  play(winSound);
+  let w=score[1]>score[2]?'Player 1 Wins 🏆':score[2]>score[1]?'Player 2 Wins 🏆':'Draw 🤝';
+  setTimeout(()=>alert(w),400);
+ }
+}
+
+function toggleMusic(){
+ if(!unlocked){musicStatus.textContent='Click anywhere first';return;}
+ if(bgMusic.paused){bgMusic.play();musicStatus.textContent='Background Music: ON';}
+ else{bgMusic.pause();musicStatus.textContent='Background Music: OFF';}
+}
+
+function resetGame(){score={1:0,2:0};player=1;update();turn.textContent='P1';build()}
+function setLevel(v){size=parseInt(v);resetGame()}
+
+function setBoard(type){
+ currentBoard = type;
+ symbols = boards[type];
+ resetGame();
+}
+
+build();
+</script>
+</body>
+</html>
